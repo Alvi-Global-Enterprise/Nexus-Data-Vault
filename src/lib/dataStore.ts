@@ -56,13 +56,29 @@ if (process.env.NODE_ENV !== 'production') {
 export function ensureDataLoaded(): DataStore {
   if (store.loaded) return store;
 
-  const DATA_DIR = process.cwd();
   const startTime = Date.now();
+
+  function findDataFile(filename: string): string | null {
+    const candidates = [
+      path.join(process.cwd(), filename),
+      path.join(__dirname, filename),
+      path.join(__dirname, '..', filename),
+      path.join(__dirname, '..', '..', filename),
+      path.join(__dirname, '..', '..', '..', filename),
+      path.join(__dirname, '..', '..', '..', '..', filename)
+    ];
+    for (const p of candidates) {
+      try {
+        if (fs.existsSync(p)) return p;
+      } catch {}
+    }
+    return null;
+  }
 
   // 1. Coincustody Orders
   try {
-    const filePath = path.join(DATA_DIR, 'coincustody.io.csv');
-    if (fs.existsSync(filePath)) {
+    const filePath = findDataFile('coincustody.io.csv');
+    if (filePath) {
       const content = fs.readFileSync(filePath, 'utf8');
       const lines = content.split('\n').filter(l => l.trim().length > 0);
       if (lines.length > 0) {
@@ -99,8 +115,8 @@ export function ensureDataLoaded(): DataStore {
 
   // 2. Sample Leads
   try {
-    const filePath = path.join(DATA_DIR, 'sample.csv');
-    if (fs.existsSync(filePath)) {
+    const filePath = findDataFile('sample.csv');
+    if (filePath) {
       const content = fs.readFileSync(filePath, 'utf8');
       const lines = content.split('\n').filter(l => l.trim().length > 0);
       lines.forEach((line, idx) => {
@@ -140,8 +156,8 @@ export function ensureDataLoaded(): DataStore {
 
   // 3. Shakepay Users
   try {
-    const filePath = path.join(DATA_DIR, 'shakepay_full.txt');
-    if (fs.existsSync(filePath)) {
+    const filePath = findDataFile('shakepay_full.txt');
+    if (filePath) {
       const content = fs.readFileSync(filePath, 'utf8');
       const lines = content.split('\n').filter(l => l.trim().length > 0);
       if (lines.length > 0) {
@@ -173,8 +189,8 @@ export function ensureDataLoaded(): DataStore {
 
   // 4. BlockFi Emails
   try {
-    const filePath = path.join(DATA_DIR, 'blockfi_full.txt');
-    if (fs.existsSync(filePath)) {
+    const filePath = findDataFile('blockfi_full.txt');
+    if (filePath) {
       const content = fs.readFileSync(filePath, 'utf8');
       const lines = content.split('\n');
       const domainCounts: Record<string, number> = {};
