@@ -7,7 +7,7 @@ import { CoincustodyOrder, SampleLead, ShakepayUser } from '@/types';
 interface DetailDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  dataset: 'coincustody' | 'sample' | 'shakepay' | null;
+  dataset: 'coincustody' | 'sample' | 'shakepay' | 'cms_crypto' | 'crypto_leads' | 'etoro' | null;
   data: any;
   onCrossMatchEmail: (email: string) => void;
 }
@@ -35,6 +35,30 @@ export function DetailDrawer({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const getDatasetBadge = () => {
+    switch (dataset) {
+      case 'coincustody': return 'Shopify & Binance Order';
+      case 'sample': return 'Identity & Net-Worth Lead';
+      case 'shakepay': return 'Shakepay Digital Banking User';
+      case 'cms_crypto': return 'CMS Crypto Subscriber';
+      case 'crypto_leads': return 'Coinbase Crypto Lead';
+      case 'etoro': return 'eToro Investor Record';
+      default: return 'Record Details';
+    }
+  };
+
+  const getRecordTitle = () => {
+    switch (dataset) {
+      case 'coincustody': return `Order #${data.order_number || data.id}`;
+      case 'sample': return data.name;
+      case 'shakepay': return `@${data.shaketag}`;
+      case 'cms_crypto': return data.name;
+      case 'crypto_leads': return data.name;
+      case 'etoro': return data.name;
+      default: return `Record #${data.id}`;
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
@@ -50,13 +74,13 @@ export function DetailDrawer({
         <div className="flex items-center justify-between border-b border-white/10 p-5 bg-slate-950/60 backdrop-blur-md">
           <div>
             <span className="rounded bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-400">
-              {dataset === 'coincustody' ? 'Shopify & Binance Order' : dataset === 'sample' ? 'Identity & Net-Worth Lead' : 'Shakepay Digital Banking User'}
+              {getDatasetBadge()}
             </span>
-            <h2 className="mt-1 text-lg font-bold text-white tracking-tight">
-              {dataset === 'coincustody' ? `Order #${data.order_number || data.id}` : dataset === 'sample' ? data.name : `@${data.shaketag}`}
+            <h2 className="mt-1 text-lg font-bold text-white tracking-tight capitalize">
+              {getRecordTitle()}
             </h2>
             <p className="text-xs text-slate-400 font-mono">
-              Database ID #{data.id}
+              Database ID #{data.id} {data.source_file ? `· Source: ${data.source_file}` : ''}
             </p>
           </div>
 
@@ -329,6 +353,291 @@ export function DetailDrawer({
                     <span className="font-semibold text-slate-200 mt-0.5 inline-block">
                       {data.newsletter ? 'Subscribed' : 'Unsubscribed'}
                     </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* === 4. CMS CRYPTO SUBSCRIBER DETAILS === */}
+          {dataset === 'cms_crypto' && (
+            <>
+              {/* Identity & Contact */}
+              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                  <Shield className="h-4 w-4" />
+                  <span>Subscriber Identity &amp; Demographics</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Full Name</span>
+                    <span className="font-semibold text-white capitalize mt-0.5 inline-block">{data.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Gender</span>
+                    <span className="font-semibold text-white capitalize mt-0.5 inline-block">{data.gender || 'Not specified'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Date of Birth</span>
+                    <span className="font-mono text-slate-200 mt-0.5 inline-block">{data.dob || '--'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Category</span>
+                    <span className="text-emerald-400 font-semibold mt-0.5 inline-block">{data.category || 'Cryptocurrency'}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-400 block text-[11px]">Email Address</span>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="font-semibold text-white">{data.email}</span>
+                      <button
+                        onClick={() => handleCopyText(data.email)}
+                        className="text-[11px] text-emerald-400 hover:underline"
+                      >
+                        Copy Email
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Phone Number</span>
+                    <span className="font-mono text-slate-200 mt-0.5 inline-block">{data.phone || '--'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">IP Address</span>
+                    <span className="font-mono text-cyan-400 mt-0.5 inline-block">{data.ip || '--'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Physical Location */}
+              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan-400">
+                  <MapPin className="h-4 w-4" />
+                  <span>Physical Address &amp; Geolocation</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="col-span-2">
+                    <span className="text-slate-400 block text-[11px]">Street Address</span>
+                    <span className="text-white capitalize mt-0.5 inline-block">{data.address || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">City</span>
+                    <span className="text-white capitalize mt-0.5 inline-block">{data.city || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">State / Region</span>
+                    <span className="font-bold text-white uppercase mt-0.5 inline-block">{data.state || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">ZIP / Postal Code</span>
+                    <span className="font-mono text-slate-200 mt-0.5 inline-block">{data.zip || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Country</span>
+                    <span className="text-slate-200 mt-0.5 inline-block">{data.country || 'USA'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Source & Batch */}
+              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
+                  <ExternalLink className="h-4 w-4" />
+                  <span>Exchange Referral &amp; Source Batch</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Source Batch</span>
+                    <span className="font-mono font-bold text-white mt-0.5 inline-block">{data.batch}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Join / Subscription Date</span>
+                    <span className="text-slate-200 mt-0.5 inline-block">{data.join_date || '--'}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-400 block text-[11px]">Referral Source Origin</span>
+                    <a
+                      href={data.source}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-cyan-400 hover:underline break-all mt-0.5 inline-flex items-center gap-1"
+                    >
+                      <span>{data.source}</span>
+                      <ExternalLink className="h-3 w-3 shrink-0" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* === 5. CRYPTO LEADS DETAILS === */}
+          {dataset === 'crypto_leads' && (
+            <>
+              {/* Lead Identity */}
+              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan-400">
+                  <Shield className="h-4 w-4" />
+                  <span>Lead Identity &amp; Contact Info</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Lead Name</span>
+                    <span className="font-semibold text-white capitalize mt-0.5 inline-block">{data.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Date of Birth</span>
+                    <span className="font-mono text-slate-200 mt-0.5 inline-block">{data.dob || '--'}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-400 block text-[11px]">Email Address</span>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="font-semibold text-white">{data.email}</span>
+                      <button
+                        onClick={() => handleCopyText(data.email)}
+                        className="text-[11px] text-cyan-400 hover:underline"
+                      >
+                        Copy Email
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Phone Number</span>
+                    <span className="font-mono text-slate-200 mt-0.5 inline-block">{data.phone || '--'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">IP Address</span>
+                    <span className="font-mono text-cyan-400 mt-0.5 inline-block">{data.ip || '--'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Physical Location */}
+              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                  <MapPin className="h-4 w-4" />
+                  <span>Location &amp; Address</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="col-span-2">
+                    <span className="text-slate-400 block text-[11px]">Street Address</span>
+                    <span className="text-white capitalize mt-0.5 inline-block">{data.address || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">City</span>
+                    <span className="text-white capitalize mt-0.5 inline-block">{data.city || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">State</span>
+                    <span className="font-bold text-white uppercase mt-0.5 inline-block">{data.state || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">ZIP Code</span>
+                    <span className="font-mono text-slate-200 mt-0.5 inline-block">{data.zip || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Batch Release</span>
+                    <span className="font-mono text-cyan-400 font-bold mt-0.5 inline-block">{data.batch}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lead Source */}
+              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
+                  <ExternalLink className="h-4 w-4" />
+                  <span>Lead Source &amp; Capture Timestamp</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Capture Timestamp</span>
+                    <span className="text-slate-200 mt-0.5 inline-block">{data.datetime || '--'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Origin File</span>
+                    <span className="font-mono text-slate-300 text-[11px] mt-0.5 inline-block">{data.source_file}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-400 block text-[11px]">Source URL</span>
+                    <a
+                      href={data.source}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-cyan-400 hover:underline break-all mt-0.5 inline-flex items-center gap-1"
+                    >
+                      <span>{data.source}</span>
+                      <ExternalLink className="h-3 w-3 shrink-0" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* === 6. ETORO INVESTOR DETAILS === */}
+          {dataset === 'etoro' && (
+            <>
+              {/* Deposit & Platform */}
+              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
+                  <CreditCard className="h-4 w-4" />
+                  <span>Deposit &amp; Platform Details</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Deposit Amount</span>
+                    <span className="font-mono font-bold text-emerald-400 text-base mt-0.5 inline-block">
+                      ${data.deposit_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {data.deposit_currency}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Deposit Gateway / Platform</span>
+                    <span className="font-semibold text-white mt-0.5 inline-block">{data.deposit_platform}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Trading Platform</span>
+                    <span className="font-mono text-cyan-400 mt-0.5 inline-block">{data.source}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Registration / Deposit Date</span>
+                    <span className="text-slate-200 mt-0.5 inline-block">{data.redate || '--'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trader Identity & Origin */}
+              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan-400">
+                  <Shield className="h-4 w-4" />
+                  <span>Investor Profile &amp; Network</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Investor Name</span>
+                    <span className="font-bold text-white capitalize mt-0.5 inline-block">{data.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Country</span>
+                    <span className="font-semibold text-white capitalize mt-0.5 inline-block">{data.country}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-400 block text-[11px]">Email Address</span>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="font-semibold text-white">{data.email}</span>
+                      <button
+                        onClick={() => handleCopyText(data.email)}
+                        className="text-[11px] text-amber-400 hover:underline"
+                      >
+                        Copy Email
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">IP Address</span>
+                    <span className="font-mono text-cyan-400 mt-0.5 inline-block">{data.ip}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Raw Deposit String</span>
+                    <span className="font-mono text-slate-300 mt-0.5 inline-block">{data.deposit_amount_raw}</span>
                   </div>
                 </div>
               </div>

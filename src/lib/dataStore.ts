@@ -1,6 +1,14 @@
 import fs from 'fs';
 import path from 'path';
-import { CoincustodyOrder, SampleLead, ShakepayUser, OverviewStats } from '@/types';
+import {
+  CoincustodyOrder,
+  SampleLead,
+  ShakepayUser,
+  CmsCryptoRecord,
+  CryptoLeadRecord,
+  EtoroRecord,
+  OverviewStats
+} from '@/types';
 
 function parseCSVLine(text: string): string[] {
   const result: string[] = [];
@@ -32,6 +40,9 @@ interface DataStore {
   shakepay: ShakepayUser[];
   blockfi: string[];
   blockfiDomains: Array<{ domain: string; count: number }>;
+  cmsCrypto: CmsCryptoRecord[];
+  cryptoLeads: CryptoLeadRecord[];
+  etoro: EtoroRecord[];
   stats: OverviewStats | null;
   loaded: boolean;
 }
@@ -45,6 +56,9 @@ export const store: DataStore = globalForData.__dataStore || {
   shakepay: [],
   blockfi: [],
   blockfiDomains: [],
+  cmsCrypto: [],
+  cryptoLeads: [],
+  etoro: [],
   stats: null,
   loaded: false
 };
@@ -214,7 +228,152 @@ export function ensureDataLoaded(): DataStore {
     console.error('[-] Error loading blockfi_full.txt:', err.message);
   }
 
-  // Stats calculation
+  // 5. CMS Cryptocurrency (CMS_cryptocurrency_01-01-2026.csv & CMS_cryptocurrency_05-01-2025.csv)
+  function loadCmsCryptoFile(filename: string, batch: '01-01-2026' | '05-01-2025') {
+    try {
+      const filePath = findDataFile(filename);
+      if (!filePath) return;
+      const content = fs.readFileSync(filePath, 'utf8');
+      const lines = content.split('\n').filter(l => l.trim().length > 0);
+      if (lines.length <= 1) return;
+      const headers = parseCSVLine(lines[0]).map(h => h.trim());
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseCSVLine(lines[i]);
+        if (row.length < 2) continue;
+        const r: Record<string, string> = {};
+        headers.forEach((h, idx) => {
+          r[h] = row[idx] !== undefined ? row[idx].trim() : '';
+        });
+        const fname = r['subscriber_fname'] || '';
+        const lname = r['subscriber_lname'] || '';
+        const name = `${fname} ${lname}`.trim() || 'Unknown';
+
+        store.cmsCrypto.push({
+          id: store.cmsCrypto.length + 1,
+          batch,
+          source_file: filename,
+          email: r['subscriber_email'] || '',
+          fname,
+          lname,
+          name,
+          address: r['subscriber_addr1'] || '',
+          city: r['subscriber_city'] || '',
+          state: (r['subscriber_state'] || '').toUpperCase(),
+          zip: r['subscriber_zip'] || '',
+          phone: r['subscriber_phone'] || '',
+          ip: r['subscriber_ip'] || '',
+          join_date: r['subscriber_joindate'] || '',
+          source: r['subscriber_source'] || '',
+          dob: r['subscriber_dob'] || '',
+          gender: (r['subscriber_gender'] || '').toLowerCase(),
+          country: r['subscriber_Country'] || 'USA',
+          category: r['subscriber_Category'] || 'Cryptocurrency'
+        });
+      }
+    } catch (err: any) {
+      console.error(`[-] Error loading ${filename}:`, err.message);
+    }
+  }
+
+  loadCmsCryptoFile('CMS_cryptocurrency_01-01-2026.csv', '01-01-2026');
+  loadCmsCryptoFile('CMS_cryptocurrency_05-01-2025.csv', '05-01-2025');
+
+  // 6. CRYPTO Leads (CRYPTO_01-01-2026.csv & CRYPTO_05-01-2025.csv)
+  function loadCryptoLeadsFile(filename: string, batch: '01-01-2026' | '05-01-2025') {
+    try {
+      const filePath = findDataFile(filename);
+      if (!filePath) return;
+      const content = fs.readFileSync(filePath, 'utf8');
+      const lines = content.split('\n').filter(l => l.trim().length > 0);
+      if (lines.length <= 1) return;
+      const headers = parseCSVLine(lines[0]).map(h => h.trim());
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseCSVLine(lines[i]);
+        if (row.length < 2) continue;
+        const r: Record<string, string> = {};
+        headers.forEach((h, idx) => {
+          r[h] = row[idx] !== undefined ? row[idx].trim() : '';
+        });
+        const fname = r['Name'] || '';
+        const lname = r['Last name'] || '';
+        const name = `${fname} ${lname}`.trim() || 'Unknown';
+
+        store.cryptoLeads.push({
+          id: store.cryptoLeads.length + 1,
+          batch,
+          source_file: filename,
+          email: r['Email'] || '',
+          fname,
+          lname,
+          name,
+          address: r['Address'] || '',
+          city: r['City'] || '',
+          state: (r['State'] || '').toUpperCase(),
+          zip: r['Zip'] || '',
+          phone: r['Phone'] || '',
+          ip: r['IP'] || '',
+          datetime: r['datetime'] || '',
+          source: r['Source'] || '',
+          dob: r['Date of birth'] || ''
+        });
+      }
+    } catch (err: any) {
+      console.error(`[-] Error loading ${filename}:`, err.message);
+    }
+  }
+
+  loadCryptoLeadsFile('CRYPTO_01-01-2026.csv', '01-01-2026');
+  loadCryptoLeadsFile('CRYPTO_05-01-2025.csv', '05-01-2025');
+
+  // 7. eToro (etoro.csv)
+  try {
+    const filePath = findDataFile('etoro.csv');
+    if (filePath) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const lines = content.split('\n').filter(l => l.trim().length > 0);
+      if (lines.length > 1) {
+        const headers = lines[0].split('\t').map(h => h.trim());
+        for (let i = 1; i < lines.length; i++) {
+          const row = lines[i].split('\t');
+          if (row.length < 2) continue;
+          const r: Record<string, string> = {};
+          headers.forEach((h, idx) => {
+            r[h] = row[idx] !== undefined ? row[idx].trim() : '';
+          });
+
+          const rawAmount = r['Deposit Amount'] || '';
+          let currency = 'USD';
+          let amount = 0;
+          const match = rawAmount.match(/^([A-Za-z]+)\s*([\d,.]+)/);
+          if (match) {
+            currency = match[1].toUpperCase();
+            amount = parseFloat(match[2].replace(/,/g, '')) || 0;
+          } else {
+            amount = parseFloat(rawAmount.replace(/[^0-9.]/g, '')) || 0;
+          }
+
+          store.etoro.push({
+            id: i,
+            source_file: 'etoro.csv',
+            source: r['Source'] || 'etoro.com',
+            name: r['Name'] || 'Unknown',
+            email: r['Email'] || '',
+            country: r['Country'] || 'Unknown',
+            ip: r['IP'] || '',
+            deposit_amount_raw: rawAmount,
+            deposit_currency: currency,
+            deposit_amount: amount,
+            deposit_platform: r['Deposit platform'] || 'Unknown',
+            redate: r['ReDate'] || ''
+          });
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error('[-] Error loading etoro.csv:', err.message);
+  }
+
+  // --- Stats calculation ---
   const paymentBreakdown: Record<string, number> = {};
   let totalOrderVolume = 0;
   store.coincustody.forEach(o => {
@@ -236,13 +395,96 @@ export function ensureDataLoaded(): DataStore {
     .sort((a, b) => b.referral_count - a.referral_count)
     .slice(0, 10);
 
+  // CMS stats
+  const cmsStates: Record<string, number> = {};
+  const cmsSources: Record<string, number> = {};
+  const cmsGenders: Record<string, number> = { male: 0, female: 0, other: 0 };
+  let cms2026Count = 0;
+  let cms2025Count = 0;
+
+  store.cmsCrypto.forEach(c => {
+    if (c.batch === '01-01-2026') cms2026Count++;
+    else if (c.batch === '05-01-2025') cms2025Count++;
+
+    if (c.state) {
+      cmsStates[c.state] = (cmsStates[c.state] || 0) + 1;
+    }
+    if (c.source) {
+      // Simplify source name
+      let cleanSource = c.source;
+      try {
+        const u = new URL(c.source);
+        cleanSource = u.hostname.replace(/^www\./, '');
+      } catch {}
+      cmsSources[cleanSource] = (cmsSources[cleanSource] || 0) + 1;
+    }
+    if (c.gender === 'male' || c.gender === 'female') {
+      cmsGenders[c.gender] = (cmsGenders[c.gender] || 0) + 1;
+    } else {
+      cmsGenders.other = (cmsGenders.other || 0) + 1;
+    }
+  });
+
+  // Crypto Leads stats
+  const cryptoStates: Record<string, number> = {};
+  const cryptoSources: Record<string, number> = {};
+  let crypto2026Count = 0;
+  let crypto2025Count = 0;
+
+  store.cryptoLeads.forEach(c => {
+    if (c.batch === '01-01-2026') crypto2026Count++;
+    else if (c.batch === '05-01-2025') crypto2025Count++;
+
+    if (c.state) {
+      cryptoStates[c.state] = (cryptoStates[c.state] || 0) + 1;
+    }
+    if (c.source) {
+      let cleanSource = c.source;
+      try {
+        const u = new URL(c.source);
+        cleanSource = u.hostname.replace(/^www\./, '');
+      } catch {}
+      cryptoSources[cleanSource] = (cryptoSources[cleanSource] || 0) + 1;
+    }
+  });
+
+  // eToro stats
+  const etoroPlatforms: Record<string, number> = {};
+  const etoroCountries: Record<string, number> = {};
+  let etoroTotalUsd = 0;
+
+  store.etoro.forEach(e => {
+    const plat = e.deposit_platform || 'Other';
+    etoroPlatforms[plat] = (etoroPlatforms[plat] || 0) + 1;
+    if (e.country) {
+      etoroCountries[e.country] = (etoroCountries[e.country] || 0) + 1;
+    }
+    etoroTotalUsd += e.deposit_amount;
+  });
+
+  const totalAllRecords =
+    store.coincustody.length +
+    store.sample.length +
+    store.shakepay.length +
+    store.blockfi.length +
+    store.cmsCrypto.length +
+    store.cryptoLeads.length +
+    store.etoro.length;
+
   store.stats = {
     counts: {
       coincustody: store.coincustody.length,
       sample: store.sample.length,
       shakepay: store.shakepay.length,
       blockfi: store.blockfi.length,
-      total: store.coincustody.length + store.sample.length + store.shakepay.length + store.blockfi.length
+      cmsCrypto: store.cmsCrypto.length,
+      cmsCrypto2026: cms2026Count,
+      cmsCrypto2025: cms2025Count,
+      cryptoLeads: store.cryptoLeads.length,
+      cryptoLeads2026: crypto2026Count,
+      cryptoLeads2025: crypto2025Count,
+      etoro: store.etoro.length,
+      total: totalAllRecords
     },
     coincustody: {
       paymentBreakdown,
@@ -265,9 +507,40 @@ export function ensureDataLoaded(): DataStore {
     blockfi: {
       topDomains: store.blockfiDomains.slice(0, 15)
     },
+    cmsCrypto: {
+      topStates: Object.entries(cmsStates)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15)
+        .map(([state, count]) => ({ state, count })),
+      topSources: Object.entries(cmsSources)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([source, count]) => ({ source, count })),
+      genderBreakdown: cmsGenders
+    },
+    cryptoLeads: {
+      topStates: Object.entries(cryptoStates)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15)
+        .map(([state, count]) => ({ state, count })),
+      topSources: Object.entries(cryptoSources)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([source, count]) => ({ source, count }))
+    },
+    etoro: {
+      totalDepositsUsd: Math.round(etoroTotalUsd),
+      avgDepositUsd: store.etoro.length ? Math.round(etoroTotalUsd / store.etoro.length) : 0,
+      platformBreakdown: etoroPlatforms,
+      topCountries: Object.entries(etoroCountries)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15)
+        .map(([country, count]) => ({ country, count }))
+    },
     indexTimeMs: Date.now() - startTime
   };
 
   store.loaded = true;
   return store;
 }
+

@@ -9,7 +9,15 @@ export async function GET(req: NextRequest) {
   if (!q || q.length < 2) {
     return NextResponse.json({
       query: q,
-      results: { coincustody: [], sample: [], shakepay: [], blockfi: [] },
+      results: {
+        coincustody: [],
+        sample: [],
+        shakepay: [],
+        blockfi: [],
+        cmsCrypto: [],
+        cryptoLeads: [],
+        etoro: []
+      },
       count: 0
     });
   }
@@ -35,6 +43,30 @@ export async function GET(req: NextRequest) {
       i.referral_url.toLowerCase().includes(q)
     ).slice(0, 15),
 
+    cmsCrypto: store.cmsCrypto.filter(i =>
+      i.email.toLowerCase().includes(q) ||
+      i.name.toLowerCase().includes(q) ||
+      i.phone.toLowerCase().includes(q) ||
+      i.ip.toLowerCase().includes(q) ||
+      i.city.toLowerCase().includes(q)
+    ).slice(0, 15),
+
+    cryptoLeads: store.cryptoLeads.filter(i =>
+      i.email.toLowerCase().includes(q) ||
+      i.name.toLowerCase().includes(q) ||
+      i.phone.toLowerCase().includes(q) ||
+      i.ip.toLowerCase().includes(q) ||
+      i.city.toLowerCase().includes(q)
+    ).slice(0, 15),
+
+    etoro: store.etoro.filter(i =>
+      i.name.toLowerCase().includes(q) ||
+      i.email.toLowerCase().includes(q) ||
+      i.country.toLowerCase().includes(q) ||
+      i.ip.toLowerCase().includes(q) ||
+      i.deposit_platform.toLowerCase().includes(q)
+    ).slice(0, 15),
+
     blockfi: [] as Array<{ id: number; email: string }>
   };
 
@@ -47,6 +79,15 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const count = results.coincustody.length + results.sample.length + results.shakepay.length + results.blockfi.length;
+  const count =
+    results.coincustody.length +
+    results.sample.length +
+    results.shakepay.length +
+    results.cmsCrypto.length +
+    results.cryptoLeads.length +
+    results.etoro.length +
+    results.blockfi.length;
+
   return NextResponse.json({ query: q, results, count });
 }
+

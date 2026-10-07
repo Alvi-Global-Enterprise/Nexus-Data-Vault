@@ -6,8 +6,8 @@ import { ShieldCheck, Lock, Mail, Eye, EyeOff, ArrowRight, AlertCircle, Sparkles
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('alviglobal.com');
-  const [password, setPassword] = useState('AlvyGlobal@#123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -93,7 +93,7 @@ export default function LoginPage() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="alviglobal.com"
+                placeholder="Enter username or email"
                 className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-white/10 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
               />
             </div>

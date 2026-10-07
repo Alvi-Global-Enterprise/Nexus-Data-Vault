@@ -1,9 +1,18 @@
 'use client';
 
 import React from 'react';
-import { LayoutDashboard, ShoppingCart, Users, CreditCard, Mail, Sparkles } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Users, CreditCard, Mail, Sparkles, TrendingUp, Zap, Shield } from 'lucide-react';
 
-export type TabType = 'overview' | 'coincustody' | 'sample' | 'shakepay' | 'blockfi' | 'omni';
+export type TabType =
+  | 'overview'
+  | 'cms-crypto'
+  | 'crypto-leads'
+  | 'etoro'
+  | 'coincustody'
+  | 'sample'
+  | 'shakepay'
+  | 'blockfi'
+  | 'omni';
 
 interface TabsNavProps {
   activeTab: TabType;
@@ -13,6 +22,9 @@ interface TabsNavProps {
     sample: number;
     shakepay: number;
     blockfi: number;
+    cmsCrypto: number;
+    cryptoLeads: number;
+    etoro: number;
   };
 }
 
@@ -26,6 +38,27 @@ export function TabsNav({ activeTab, onSelectTab, counts }: TabsNavProps) {
       badgeColor: ''
     },
     {
+      id: 'cms-crypto' as TabType,
+      label: 'CMS Crypto Subscribers',
+      icon: Shield,
+      badge: `${(counts.cmsCrypto / 1000).toFixed(1)}k`,
+      badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+    },
+    {
+      id: 'crypto-leads' as TabType,
+      label: 'Coinbase Crypto Leads',
+      icon: Zap,
+      badge: `${(counts.cryptoLeads / 1000).toFixed(1)}k`,
+      badgeColor: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+    },
+    {
+      id: 'etoro' as TabType,
+      label: 'eToro Investors & Deposits',
+      icon: TrendingUp,
+      badge: counts.etoro.toLocaleString(),
+      badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+    },
+    {
       id: 'coincustody' as TabType,
       label: 'Shopify & Binance Orders',
       icon: ShoppingCart,
@@ -34,21 +67,21 @@ export function TabsNav({ activeTab, onSelectTab, counts }: TabsNavProps) {
     },
     {
       id: 'sample' as TabType,
-      label: 'Identity & Net-Worth Leads',
+      label: 'Identity Leads',
       icon: Users,
       badge: counts.sample.toLocaleString(),
       badgeColor: 'bg-violet-500/10 text-violet-400 border-violet-500/20'
     },
     {
       id: 'shakepay' as TabType,
-      label: 'Digital Banking / Shakepay',
+      label: 'Shakepay Banking',
       icon: CreditCard,
       badge: `${(counts.shakepay / 1000).toFixed(1)}k`,
       badgeColor: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
     },
     {
       id: 'blockfi' as TabType,
-      label: 'BlockFi Crypto Emails',
+      label: 'BlockFi Emails',
       icon: Mail,
       badge: `${Math.round(counts.blockfi / 1000)}k`,
       badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'

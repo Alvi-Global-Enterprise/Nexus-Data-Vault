@@ -62,12 +62,75 @@ export interface BlockfiEntry {
   email: string;
 }
 
+export interface CmsCryptoRecord {
+  id: number;
+  batch: '01-01-2026' | '05-01-2025';
+  source_file: string;
+  email: string;
+  fname: string;
+  lname: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  ip: string;
+  join_date: string;
+  source: string;
+  dob: string;
+  gender: string;
+  country: string;
+  category: string;
+}
+
+export interface CryptoLeadRecord {
+  id: number;
+  batch: '01-01-2026' | '05-01-2025';
+  source_file: string;
+  email: string;
+  fname: string;
+  lname: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  ip: string;
+  datetime: string;
+  source: string;
+  dob: string;
+}
+
+export interface EtoroRecord {
+  id: number;
+  source_file: string;
+  source: string;
+  name: string;
+  email: string;
+  country: string;
+  ip: string;
+  deposit_amount_raw: string;
+  deposit_currency: string;
+  deposit_amount: number;
+  deposit_platform: string;
+  redate: string;
+}
+
 export interface OverviewStats {
   counts: {
     coincustody: number;
     sample: number;
     shakepay: number;
     blockfi: number;
+    cmsCrypto: number;
+    cmsCrypto2026: number;
+    cmsCrypto2025: number;
+    cryptoLeads: number;
+    cryptoLeads2026: number;
+    cryptoLeads2025: number;
+    etoro: number;
     total: number;
   };
   coincustody: {
@@ -88,5 +151,21 @@ export interface OverviewStats {
   blockfi: {
     topDomains: Array<{ domain: string; count: number }>;
   };
+  cmsCrypto: {
+    topStates: Array<{ state: string; count: number }>;
+    topSources: Array<{ source: string; count: number }>;
+    genderBreakdown: Record<string, number>;
+  };
+  cryptoLeads: {
+    topStates: Array<{ state: string; count: number }>;
+    topSources: Array<{ source: string; count: number }>;
+  };
+  etoro: {
+    totalDepositsUsd: number;
+    avgDepositUsd: number;
+    platformBreakdown: Record<string, number>;
+    topCountries: Array<{ country: string; count: number }>;
+  };
   indexTimeMs: number;
 }
+
