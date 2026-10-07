@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Layers, Search, RefreshCw, Database } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Layers, Search, RefreshCw, Database, LogOut } from 'lucide-react';
 
 interface NavbarProps {
   totalRecords: number;
@@ -11,7 +12,18 @@ interface NavbarProps {
 }
 
 export function Navbar({ totalRecords, onOpenOmni, onRefresh, isLoading }: NavbarProps) {
+  const router = useRouter();
   const [searchInput, setSearchInput] = React.useState('');
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+      router.refresh();
+    } catch {
+      window.location.href = '/login';
+    }
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,6 +98,15 @@ export function Navbar({ totalRecords, onOpenOmni, onRefresh, isLoading }: Navba
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin text-cyan-400' : ''}`} />
             <span className="hidden sm:inline">Sync</span>
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40 transition-all ml-1"
+            title="Sign out of Nexus Vault"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </div>
