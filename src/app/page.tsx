@@ -13,6 +13,8 @@ import { ShakepayTable } from '@/components/ShakepayTable';
 import { BlockfiTable } from '@/components/BlockfiTable';
 import { OmniSearchModal } from '@/components/OmniSearchModal';
 import { DetailDrawer } from '@/components/DetailDrawer';
+import { ContactsView } from '@/components/contacts/ContactsView';
+import { CampaignsView } from '@/components/campaigns/CampaignsView';
 import {
   OverviewStats,
   CoincustodyOrder,
@@ -37,6 +39,9 @@ export default function HomePage() {
 
   // OmniSearch query
   const [omniQuery, setOmniQuery] = useState('');
+
+  // Target contact IDs when transitioning from Contacts to Campaigns
+  const [campaignTargetContactIds, setCampaignTargetContactIds] = useState<number[]>([]);
 
   const fetchStats = async () => {
     setIsLoadingStats(true);
@@ -103,6 +108,22 @@ export default function HomePage() {
           <OverviewView
             stats={stats}
             onNavigateTab={(t) => setActiveTab(t)}
+          />
+        )}
+
+        {activeTab === 'contacts' && (
+          <ContactsView
+            onStartCampaignWithContacts={(contactIds) => {
+              setCampaignTargetContactIds(contactIds);
+              setActiveTab('campaigns');
+            }}
+          />
+        )}
+
+        {activeTab === 'campaigns' && (
+          <CampaignsView
+            initialContactIdsForNewCampaign={campaignTargetContactIds}
+            onClearInitialContacts={() => setCampaignTargetContactIds([])}
           />
         )}
 

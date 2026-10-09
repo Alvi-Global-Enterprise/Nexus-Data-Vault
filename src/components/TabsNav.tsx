@@ -1,10 +1,12 @@
 'use client';
 
 import React from 'react';
-import { LayoutDashboard, ShoppingCart, Users, CreditCard, Mail, Sparkles, TrendingUp, Zap, Shield } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Users, CreditCard, Mail, Sparkles, TrendingUp, Zap, Shield, Send } from 'lucide-react';
 
 export type TabType =
   | 'overview'
+  | 'contacts'
+  | 'campaigns'
   | 'cms-crypto'
   | 'crypto-leads'
   | 'etoro'
@@ -36,6 +38,20 @@ export function TabsNav({ activeTab, onSelectTab, counts }: TabsNavProps) {
       icon: LayoutDashboard,
       badge: null,
       badgeColor: ''
+    },
+    {
+      id: 'contacts' as TabType,
+      label: 'Audience & Contacts',
+      icon: Users,
+      badge: 'API v1',
+      badgeColor: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+    },
+    {
+      id: 'campaigns' as TabType,
+      label: 'AI Campaigns & Dispatch',
+      icon: Send,
+      badge: '4 TEMPLATES',
+      badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
     },
     {
       id: 'cms-crypto' as TabType,

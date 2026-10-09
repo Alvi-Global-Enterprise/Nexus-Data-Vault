@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Layers, Search, RefreshCw, Database, LogOut } from 'lucide-react';
+import { Layers, Search, RefreshCw, Database, LogOut, User } from 'lucide-react';
+import { useLogout, useCurrentUser } from '@/lib/api';
 
 interface NavbarProps {
   totalRecords: number;
@@ -14,14 +15,18 @@ interface NavbarProps {
 export function Navbar({ totalRecords, onOpenOmni, onRefresh, isLoading }: NavbarProps) {
   const router = useRouter();
   const [searchInput, setSearchInput] = React.useState('');
+  const logoutMutation = useLogout();
+  const { data: currentUser } = useCurrentUser();
 
   const handleLogout = async () => {
     try {
+      await logoutMutation.mutateAsync();
       await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore
+    } finally {
       router.push('/login');
       router.refresh();
-    } catch {
-      window.location.href = '/login';
     }
   };
 
@@ -100,9 +105,17 @@ export function Navbar({ totalRecords, onOpenOmni, onRefresh, isLoading }: Navba
             <span className="hidden sm:inline">Sync</span>
           </button>
 
+          {currentUser && (
+            <div className="hidden xl:flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300 font-mono">
+              <User className="h-3.5 w-3.5 text-cyan-400" />
+              <span className="truncate max-w-[140px] text-[11px]">{currentUser.email || currentUser.name || 'Active User'}</span>
+            </div>
+          )}
+
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40 transition-all ml-1"
+            disabled={logoutMutation.isPending}
+            className="flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40 transition-all ml-1 disabled:opacity-50"
             title="Sign out of Nexus Vault"
           >
             <LogOut className="h-3.5 w-3.5" />

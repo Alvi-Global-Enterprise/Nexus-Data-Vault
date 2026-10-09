@@ -34,11 +34,60 @@ export function OverviewView({ stats, onNavigateTab }: OverviewViewProps) {
             Crypto &amp; Commerce Intelligence Dashboard
           </h1>
           <p className="text-sm text-slate-400">
-            Real-time categorized index of all local CSV datasets: CMS Crypto, Coinbase Leads, eToro, Shopify, and Shakepay.
+            Real-time categorized index of all datasets integrated with MailForge AI REST APIs &amp; Campaign Dispatcher.
           </p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-mono font-semibold text-emerald-400">
           <span>⚡ {stats.counts.total.toLocaleString()} records indexed in {stats.indexTimeMs}ms</span>
+        </div>
+      </div>
+
+      {/* MailForge AI REST API Quick Action Hub */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div
+          onClick={() => onNavigateTab('campaigns')}
+          className="group cursor-pointer rounded-3xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/40 via-indigo-950/30 to-slate-900/60 p-5 backdrop-blur-xl transition-all hover:border-cyan-400 hover:shadow-2xl hover:shadow-cyan-500/10 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 group-hover:scale-105 transition-transform">
+              <Mail className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white text-base">MailForge AI Campaigns</span>
+                <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-bold text-cyan-400 border border-cyan-500/20">
+                  4 UI Templates
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Dispatch personalized emails with responsive templates &amp; AI copywriting.
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="h-5 w-5 text-cyan-400 group-hover:translate-x-1 transition-transform shrink-0" />
+        </div>
+
+        <div
+          onClick={() => onNavigateTab('contacts')}
+          className="group cursor-pointer rounded-3xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-slate-900/60 p-5 backdrop-blur-xl transition-all hover:border-indigo-400 hover:shadow-2xl hover:shadow-indigo-500/10 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 group-hover:scale-105 transition-transform">
+              <Users className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white text-base">Audience &amp; Contacts Book</span>
+                <span className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-400 border border-indigo-500/20">
+                  Excel/CSV Import
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Smart header detection, contact management, and audience targeting.
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="h-5 w-5 text-indigo-400 group-hover:translate-x-1 transition-transform shrink-0" />
         </div>
       </div>
 

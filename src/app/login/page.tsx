@@ -2,42 +2,66 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Lock, Mail, Eye, EyeOff, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, Eye, EyeOff, ArrowRight, AlertCircle, Sparkles, CheckCircle2 } from 'lucide-react';
+import { useLogin, setAuthToken } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const loginMutation = useLogin();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
+    setErrorMessage('');
 
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
+    loginMutation.mutate(
+      { email: username, password },
+      {
+        onSuccess: async (data) => {
+          // Sync with local Next.js Edge session for dashboard route access
+          try {
+            await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username,
+                password,
+                token: data?.token || data?.access_token,
+              }),
+            });
+          } catch (e) {
+            console.error('Session sync error', e);
+          }
+          router.push('/');
+          router.refresh();
+        },
+        onError: async (err: any) => {
+          // If remote API credentials failed, try local fallback credentials
+          try {
+            const fallbackRes = await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username, password }),
+            });
+            const fallbackData = await fallbackRes.json();
+            if (fallbackData.success) {
+              setAuthToken('local_authenticated_token');
+              router.push('/');
+              router.refresh();
+              return;
+            }
+          } catch (fallbackErr) {
+            // ignore
+          }
 
-      const data = await res.json();
-
-      if (data.success) {
-        // Redirect to dashboard
-        router.push('/');
-        router.refresh();
-      } else {
-        setError(data.message || 'Invalid username or password');
+          setErrorMessage(err?.message || 'Authentication failed. Please verify credentials.');
+        },
       }
-    } catch (err) {
-      setError('Connection error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    );
   };
 
   return (
@@ -71,10 +95,10 @@ export default function LoginPage() {
         </div>
 
         {/* Error Notification */}
-        {error && (
+        {errorMessage && (
           <div className="mt-6 flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300 animate-in fade-in">
             <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
-            <span>{error}</span>
+            <span>{errorMessage}</span>
           </div>
         )}
 
@@ -84,7 +108,7 @@ export default function LoginPage() {
           {/* Username / Domain */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-              Account Identifier
+              Account Identifier / Email
             </label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -93,7 +117,7 @@ export default function LoginPage() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username or email"
+                placeholder="fionawhite@yopmail.co or alviglobal.com"
                 className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-white/10 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
               />
             </div>
@@ -127,13 +151,13 @@ export default function LoginPage() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loginMutation.isPending}
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-400 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-500/25 hover:opacity-95 disabled:opacity-50 transition-all"
           >
-            {loading ? (
+            {loginMutation.isPending ? (
               <div className="flex items-center gap-2">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950 border-t-transparent" />
-                <span>Verifying credentials...</span>
+                <span>Verifying credentials with API...</span>
               </div>
             ) : (
               <>
