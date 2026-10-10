@@ -195,7 +195,7 @@ export function OmniSearchModal({
               <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                 {!results.cryptoLeads?.length ? (
                   <div className="py-12 text-center text-xs text-slate-500">No matching leads</div>
-                ) : (
+                ) : ( 
                   results.cryptoLeads.map((lead) => (
                     <div
                       key={`cl-${lead.batch}-${lead.id}`}

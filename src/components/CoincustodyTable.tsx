@@ -72,10 +72,8 @@ export function CoincustodyTable({ onSelectOrder }: CoincustodyTableProps) {
       console.error('Export failed', err);
     }
   };
-
   return (
     <div className="space-y-4">
-      {/* View Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight">Shopify & Binance Checkout Orders</h1>
@@ -91,10 +89,7 @@ export function CoincustodyTable({ onSelectOrder }: CoincustodyTableProps) {
           <span>Export CSV</span>
         </button>
       </div>
-
-      {/* Filter Toolbar */}
       <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 backdrop-blur-xl flex flex-wrap items-center gap-4">
-        {/* Search */}
         <form onSubmit={handleSearchSubmit} className="flex-1 min-w-[240px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -107,8 +102,6 @@ export function CoincustodyTable({ onSelectOrder }: CoincustodyTableProps) {
             />
           </div>
         </form>
-
-        {/* Payment Gateway Filter */}
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Gateway:</span>
           <div className="flex flex-wrap gap-1">
@@ -146,8 +139,6 @@ export function CoincustodyTable({ onSelectOrder }: CoincustodyTableProps) {
             </button>
           </div>
         </div>
-
-        {/* Status Filter */}
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Status:</span>
           <div className="flex gap-1">
@@ -165,8 +156,6 @@ export function CoincustodyTable({ onSelectOrder }: CoincustodyTableProps) {
           </div>
         </div>
       </div>
-
-      {/* Orders Table */}
       <div className="rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
@@ -289,7 +278,6 @@ export function CoincustodyTable({ onSelectOrder }: CoincustodyTableProps) {
           </table>
         </div>
 
-        {/* Pagination Footer */}
         <div className="flex items-center justify-between border-t border-white/10 bg-slate-950/40 px-4 py-3 text-xs text-slate-400">
           <div>
             Showing <span className="font-semibold text-white">{items.length}</span> of <span className="font-semibold text-white">{total.toLocaleString()}</span> orders

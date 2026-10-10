@@ -18,9 +18,7 @@ export const CONTACTS_QUERY_KEYS = {
   detail: (id: number | string) => [...CONTACTS_QUERY_KEYS.details(), id] as const,
 };
 
-/**
- * Fetch paginated contacts list with filters
- */
+
 export function useContacts(params?: ContactsQueryParams) {
   return useQuery<PaginatedResponse<Contact>, Error>({
     queryKey: CONTACTS_QUERY_KEYS.list(params),
@@ -29,9 +27,7 @@ export function useContacts(params?: ContactsQueryParams) {
   });
 }
 
-/**
- * Fetch single contact details
- */
+
 export function useContact(id: number | string, enabled = true) {
   return useQuery<ApiResponse<Contact>, Error>({
     queryKey: CONTACTS_QUERY_KEYS.detail(id),
@@ -40,9 +36,7 @@ export function useContact(id: number | string, enabled = true) {
   });
 }
 
-/**
- * Upload & import spreadsheet mutation
- */
+
 export function useImportSpreadsheet() {
   const queryClient = useQueryClient();
 
@@ -54,9 +48,6 @@ export function useImportSpreadsheet() {
   });
 }
 
-/**
- * Create a single contact mutation
- */
 export function useCreateContact() {
   const queryClient = useQueryClient();
 
@@ -67,10 +58,6 @@ export function useCreateContact() {
     },
   });
 }
-
-/**
- * Update contact mutation
- */
 export function useUpdateContact() {
   const queryClient = useQueryClient();
 
@@ -82,7 +69,7 @@ export function useUpdateContact() {
     mutationFn: ({ id, payload }) => contactsService.updateContact(id, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: CONTACTS_QUERY_KEYS.detail(variables.id) });
-      queryClient.invalidateQueries({ queryKey: CONTACTS_QUERY_KEYS.lists() });
+      queryClient.invalidateQueries({ queryKey: CONTACTS_QUERY_KEYS.lists() });  
     },
   });
 }

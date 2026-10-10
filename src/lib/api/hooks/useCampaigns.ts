@@ -160,6 +160,7 @@ export function useApproveCampaign() {
     mutationFn: (id: number | string) => campaignsService.approveCampaign(id),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.detail(id) });
+      queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.status(id) });
       queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.lists() });
     },
   });
@@ -246,17 +247,37 @@ export function useCancelCampaign() {
 }
 
 /**
- * Live campaign status report hook (auto-pollable)
+ * Live campaign status report hook (auto-pollable with smart auto-stop)
  */
 export function useCampaignStatus(
   id: number | string,
-  options?: { enabled?: boolean; refetchInterval?: number | false }
+  options?: {
+    enabled?: boolean;
+    refetchInterval?: number | false | ((query: any) => number | false | undefined);
+  }
 ) {
   return useQuery<ApiResponse<CampaignStatusReport>, Error>({
     queryKey: CAMPAIGNS_QUERY_KEYS.status(id),
     queryFn: () => campaignsService.getCampaignStatus(id),
     enabled: options?.enabled ?? !!id,
-    refetchInterval: options?.refetchInterval ?? 3000,
+    refetchInterval:
+      options?.refetchInterval !== undefined
+        ? options.refetchInterval
+        : (query) => {
+            const report = query.state.data?.data;
+            if (!report) return false;
+            const isGenerating =
+              report.generation_status === 'generating' ||
+              (report.campaign_status === 'generating' &&
+                report.generation_status !== 'completed' &&
+                report.generation_status !== 'error');
+            const isSending =
+              report.campaign_status === 'sending' ||
+              (report.total_recipients > 0 &&
+                (report.queued_count > 0 || report.processing_count > 0));
+            // Only poll if generating or actively sending (2.5s per backend requirements)
+            return isGenerating || isSending ? 2500 : false;
+          },
   });
 }
 
@@ -265,12 +286,15 @@ export function useCampaignStatus(
  */
 export function useCampaignDeliveryStats(
   id: number | string,
-  options?: { enabled?: boolean; refetchInterval?: number | false }
+  options?: {
+    enabled?: boolean;
+    refetchInterval?: number | false | ((query: any) => number | false | undefined);
+  }
 ) {
   return useQuery<ApiResponse<CampaignDeliveryStats>, Error>({
     queryKey: CAMPAIGNS_QUERY_KEYS.delivery(id),
     queryFn: () => campaignsService.getDeliveryStats(id),
     enabled: options?.enabled ?? !!id,
-    refetchInterval: options?.refetchInterval ?? 3000,
+    refetchInterval: options?.refetchInterval ?? false,
   });
 }
