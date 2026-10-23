@@ -25,10 +25,10 @@ export function Navbar({ totalRecords, onOpenOmni, onRefresh, isLoading }: Navba
     } catch {
       // ignore
     } finally {
-      router.push('/login');
-      router.refresh();
+      window.location.href = '/login';
     }
   };
+
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

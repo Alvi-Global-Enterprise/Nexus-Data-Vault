@@ -124,6 +124,9 @@ export function CampaignsView({
   );
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [targetContactIds, setTargetContactIds] = useState<number[]>(initialContactIdsForNewCampaign);
+  const [recipientSelectionMode, setRecipientSelectionMode] = useState<'all' | 'selected' | 'top10' | 'top25'>(
+    initialContactIdsForNewCampaign.length > 0 ? 'selected' : 'all'
+  );
 
   // Active Campaign Editable State
   const [editingSubject, setEditingSubject] = useState('');
@@ -283,37 +286,54 @@ export function CampaignsView({
     showToast('info', `Loaded template: "${template.name}" into Direct Mode.`);
   };
 
+  const [createErrors, setCreateErrors] = useState<{
+    name?: string;
+    subject?: string;
+    body?: string;
+    prompt?: string;
+    raw?: string;
+  }>({});
+
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: typeof createErrors = {};
+
     if (!newName.trim()) {
-      showToast('error', 'Please enter a campaign name');
-      return;
+      errors.name = 'Please enter a campaign name.';
+    } else if (newName.trim().length < 3) {
+      errors.name = 'Campaign name must be at least 3 characters.';
     }
 
     if (newMode === 'direct') {
       if (!newSubject.trim()) {
-        showToast('error', 'Please enter an email subject line for direct mode');
-        return;
+        errors.subject = 'Please enter an email subject line for direct mode.';
       }
-      if (!newBodyHtml.trim()) {
-        showToast('error', 'Please enter an email body for direct mode');
-        return;
+      if (!newBodyHtml.trim() || newBodyHtml.trim() === '<p></p>') {
+        errors.body = 'Please enter an email body for direct mode.';
       }
     } else if (newMode === 'generate') {
       if (!newPrompt.trim()) {
-        showToast('error', 'Please enter an AI prompt for copy generation');
-        return;
+        errors.prompt = 'Please enter an AI prompt for copy generation.';
+      } else if (newPrompt.trim().length < 5) {
+        errors.prompt = 'Prompt must be at least 5 characters.';
       }
     } else if (newMode === 'polish') {
       if (!newRawEmail.trim()) {
-        showToast('error', 'Please paste your rough draft email to polish');
-        return;
+        errors.raw = 'Please paste your rough draft email to polish.';
       }
       if (!newPrompt.trim()) {
-        showToast('error', 'Please enter instructions on how AI should polish your draft');
-        return;
+        errors.prompt = 'Please enter instructions on how AI should polish your draft.';
       }
     }
+
+    setCreateErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      const firstError = Object.values(errors)[0];
+      showToast('error', firstError || 'Please fill in all required fields.');
+      return;
+    }
+
 
     const payload: CreateCampaignPayload = {
       name: newName.trim(),
@@ -329,12 +349,28 @@ export function CampaignsView({
       const res = await createMutation.mutateAsync(payload);
       const createdCampaign = res.data;
 
-      // Attach contacts if selected
-      if (createdCampaign?.id && targetContactIds.length > 0) {
-        await attachRecipientsMutation.mutateAsync({
-          id: createdCampaign.id,
-          contactIds: targetContactIds,
-        });
+      // Determine contacts to attach:
+      // If user came with pre-selected contact IDs, use those.
+      // Otherwise (direct create from Campaigns page), automatically attach all available contacts from vault!
+      const availableContactIds = contactsData?.data?.map((c) => c.id) || [];
+      let idsToAttach = targetContactIds;
+
+      if (idsToAttach.length === 0) {
+        idsToAttach = availableContactIds;
+      }
+
+      if (createdCampaign?.id && idsToAttach.length > 0) {
+        try {
+          await attachRecipientsMutation.mutateAsync({
+            id: createdCampaign.id,
+            contactIds: idsToAttach,
+          });
+          queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.detail(createdCampaign.id) });
+          queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.recipients(createdCampaign.id) });
+          queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.lists() });
+        } catch (attachErr) {
+          console.error('Failed to attach recipients to campaign', attachErr);
+        }
       }
 
       setIsCreateOpen(false);
@@ -354,12 +390,33 @@ export function CampaignsView({
             },
           });
         } else {
-          showToast('success', 'Campaign draft created! Review and approve before dispatch.');
+          showToast('success', `Campaign draft created with ${idsToAttach.length} recipients attached!`);
         }
       }
       refetchCampaigns();
     } catch (err: any) {
       showToast('error', err?.response?.data?.message || err?.message || 'Failed to create campaign');
+    }
+  };
+
+  const handleAttachAllContacts = async (campaignId: number) => {
+    const availableContactIds = contactsData?.data?.map((c) => c.id) || [];
+    if (availableContactIds.length === 0) {
+      showToast('error', 'No contacts found in vault. Please add or import contacts first.');
+      return;
+    }
+    try {
+      showToast('info', `Attaching ${availableContactIds.length} recipients...`);
+      await attachRecipientsMutation.mutateAsync({
+        id: campaignId,
+        contactIds: availableContactIds,
+      });
+      showToast('success', `Successfully attached ${availableContactIds.length} recipients!`);
+      queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.detail(campaignId) });
+      queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.recipients(campaignId) });
+      queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.lists() });
+    } catch (err: any) {
+      showToast('error', err?.response?.data?.message || 'Failed to attach recipients');
     }
   };
 
@@ -419,6 +476,29 @@ export function CampaignsView({
   };
 
   const handleDispatch = async (id: number) => {
+    // If no recipients are attached, auto-attach available contacts first
+    if (activeCampaign && activeCampaign.total_recipients === 0) {
+      const availableContactIds = contactsData?.data?.map((c) => c.id) || [];
+      if (availableContactIds.length > 0) {
+        showToast('info', `Attaching ${availableContactIds.length} recipients to campaign before dispatch...`);
+        try {
+          await attachRecipientsMutation.mutateAsync({
+            id,
+            contactIds: availableContactIds,
+          });
+          queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.detail(id) });
+          queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.recipients(id) });
+          queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEYS.lists() });
+        } catch (attachErr: any) {
+          showToast('error', 'Failed to attach recipients to campaign');
+          return;
+        }
+      } else {
+        showToast('error', 'Cannot dispatch campaign: no recipients attached and no contacts found in vault.');
+        return;
+      }
+    }
+
     try {
       await dispatchMutation.mutateAsync(id);
       showToast('success', 'Campaign dispatch initiated! Live delivery progress active.');
@@ -426,6 +506,7 @@ export function CampaignsView({
       showToast('error', err?.response?.data?.message || err?.message || 'Failed to dispatch campaign');
     }
   };
+
 
   const handlePause = async (id: number) => {
     try {
@@ -729,11 +810,37 @@ export function CampaignsView({
               </p>
               {statusReport?.generation_status === 'error' && (
                 <div className="mt-2 flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
                   <span>AI generation failed: {statusReport.generation_error || 'Internal server error'}</span>
                 </div>
               )}
+
+              {/* If no recipients are attached */}
+              {activeCampaign.total_recipients === 0 && (
+                <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-400" />
+                    <span>
+                      <strong>0 recipients attached.</strong> Campaign cannot be dispatched until contacts are attached.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAttachAllContacts(activeCampaign.id)}
+                    disabled={attachRecipientsMutation.isPending}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-400 px-3.5 py-1.5 font-bold text-slate-950 hover:bg-amber-300 transition-all text-xs shrink-0 shadow-md"
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    <span>
+                      {attachRecipientsMutation.isPending
+                        ? 'Attaching...'
+                        : `Attach All ${contactsData?.data?.length || 0} Contacts`}
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
+
 
             {/* Campaign In-Flight Lifecycle Controls */}
             <div className="flex flex-wrap items-center gap-2">
@@ -1072,23 +1179,122 @@ export function CampaignsView({
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="space-y-5 text-xs">
+            <form onSubmit={handleCreateSubmit} noValidate className="space-y-5 text-xs">
               {/* Campaign Name */}
               <div>
-                <label className="text-slate-300 font-bold block mb-1.5">Campaign Name *</label>
+                <label className="text-slate-300 font-bold block mb-1.5">
+                  Campaign Name <span className="text-rose-400">*</span>
+                </label>
                 <input
                   type="text"
-                  required
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
+                  onChange={(e) => {
+                    setNewName(e.target.value);
+                    if (createErrors.name) {
+                      setCreateErrors((prev) => ({ ...prev, name: undefined }));
+                    }
+                  }}
                   placeholder="e.g. Q4 Institutional Investor Alpha Briefing"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                  className={`w-full rounded-xl border px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none transition-all ${
+                    createErrors.name
+                      ? 'border-rose-500/70 bg-rose-500/5 focus:border-rose-400 focus:ring-1 focus:ring-rose-400'
+                      : 'border-white/10 bg-white/5 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500'
+                  }`}
                 />
+                {createErrors.name && (
+                  <p className="flex items-center gap-1 text-[11px] text-rose-400 mt-1">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    <span>{createErrors.name}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Target Audience & Recipients Selection */}
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-cyan-400" />
+                    <span className="font-bold text-white text-xs">Target Recipients *</span>
+                  </div>
+                  <span className="rounded-full bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 text-[11px] font-mono font-bold text-cyan-300">
+                    {recipientSelectionMode === 'selected' && targetContactIds.length > 0
+                      ? `${targetContactIds.length} Pre-Selected Contacts`
+                      : recipientSelectionMode === 'top10'
+                      ? '10 Recipients'
+                      : recipientSelectionMode === 'top25'
+                      ? '25 Recipients'
+                      : `All ${contactsData?.data?.length || 0} Vault Contacts`}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Recipients will be automatically attached to this campaign upon creation so you can dispatch immediately without errors.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRecipientSelectionMode('all');
+                      setTargetContactIds(contactsData?.data?.map((c) => c.id) || []);
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold border transition-all ${
+                      recipientSelectionMode === 'all'
+                        ? 'border-cyan-500 bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500'
+                        : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    All Contacts ({contactsData?.data?.length || 0})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRecipientSelectionMode('top10');
+                      setTargetContactIds((contactsData?.data || []).slice(0, 10).map((c) => c.id));
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold border transition-all ${
+                      recipientSelectionMode === 'top10'
+                        ? 'border-cyan-500 bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500'
+                        : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Top 10 Contacts
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRecipientSelectionMode('top25');
+                      setTargetContactIds((contactsData?.data || []).slice(0, 25).map((c) => c.id));
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold border transition-all ${
+                      recipientSelectionMode === 'top25'
+                        ? 'border-cyan-500 bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500'
+                        : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Top 25 Contacts
+                  </button>
+                  {initialContactIdsForNewCampaign.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecipientSelectionMode('selected');
+                        setTargetContactIds(initialContactIdsForNewCampaign);
+                      }}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-bold border transition-all ${
+                        recipientSelectionMode === 'selected'
+                          ? 'border-cyan-500 bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500'
+                          : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Pre-Selected ({initialContactIdsForNewCampaign.length})
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Step 1: Mode Selection UI */}
               <div>
                 <label className="text-slate-300 font-bold block mb-2">Campaign Mode *</label>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {/* Mode 1: Direct */}
                   <div
@@ -1185,28 +1391,57 @@ export function CampaignsView({
                   </div>
 
                   <div>
-                    <label className="text-slate-300 font-semibold block mb-1">Subject Line *</label>
+                    <label className="text-slate-300 font-semibold block mb-1">
+                      Subject Line <span className="text-rose-400">*</span>
+                    </label>
                     <input
                       type="text"
-                      required={newMode === 'direct'}
                       value={newSubject}
-                      onChange={(e) => setNewSubject(e.target.value)}
+                      onChange={(e) => {
+                        setNewSubject(e.target.value);
+                        if (createErrors.subject) {
+                          setCreateErrors((prev) => ({ ...prev, subject: undefined }));
+                        }
+                      }}
                       placeholder="e.g. Exclusive Q4 Alpha Briefing"
-                      className="w-full rounded-xl border border-white/10 bg-[#0d1326] px-3.5 py-2 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                      className={`w-full rounded-xl border bg-[#0d1326] px-3.5 py-2 text-white placeholder-slate-500 focus:outline-none transition-all ${
+                        createErrors.subject
+                          ? 'border-rose-500/70 bg-rose-500/5 focus:border-rose-400 focus:ring-1 focus:ring-rose-400'
+                          : 'border-white/10 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500'
+                      }`}
                     />
+                    {createErrors.subject && (
+                      <p className="flex items-center gap-1 text-[11px] text-rose-400 mt-1">
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        <span>{createErrors.subject}</span>
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-slate-300 font-semibold block">Email Body (Rich Text Editor) *</label>
+                      <label className="text-slate-300 font-semibold block">
+                        Email Body (Rich Text Editor) <span className="text-rose-400">*</span>
+                      </label>
                       <span className="text-[10px] text-cyan-400 font-mono">WYSIWYG · Formats automatically</span>
                     </div>
                     <RichTextEditor
                       value={newBodyHtml}
-                      onChange={setNewBodyHtml}
+                      onChange={(val) => {
+                        setNewBodyHtml(val);
+                        if (createErrors.body) {
+                          setCreateErrors((prev) => ({ ...prev, body: undefined }));
+                        }
+                      }}
                       placeholder="Start writing your email message here... Style with bold, headings, bullets, links, etc."
                       minHeight="220px"
                     />
+                    {createErrors.body && (
+                      <p className="flex items-center gap-1 text-[11px] text-rose-400 mt-1">
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        <span>{createErrors.body}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -1243,15 +1478,31 @@ export function CampaignsView({
                   </div>
 
                   <div>
-                    <label className="text-slate-300 font-semibold block mb-1">AI Copywriter Prompt *</label>
+                    <label className="text-slate-300 font-semibold block mb-1">
+                      AI Copywriter Prompt <span className="text-rose-400">*</span>
+                    </label>
                     <textarea
                       rows={3}
-                      required={newMode === 'generate'}
                       value={newPrompt}
-                      onChange={(e) => setNewPrompt(e.target.value)}
+                      onChange={(e) => {
+                        setNewPrompt(e.target.value);
+                        if (createErrors.prompt) {
+                          setCreateErrors((prev) => ({ ...prev, prompt: undefined }));
+                        }
+                      }}
                       placeholder="e.g. Write an announcement email for product discount with a 20% coupon code and personal greeting using {{ firstName }}..."
-                      className="w-full rounded-xl border border-white/10 bg-[#0d1326] p-3 text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+                      className={`w-full rounded-xl border bg-[#0d1326] p-3 text-white placeholder-slate-500 focus:outline-none transition-all ${
+                        createErrors.prompt
+                          ? 'border-rose-500/70 bg-rose-500/5 focus:border-rose-400 focus:ring-1 focus:ring-rose-400'
+                          : 'border-white/10 focus:border-purple-500 focus:ring-1 focus:ring-purple-500'
+                      }`}
                     />
+                    {createErrors.prompt && (
+                      <p className="flex items-center gap-1 text-[11px] text-rose-400 mt-1">
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        <span>{createErrors.prompt}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -1261,17 +1512,32 @@ export function CampaignsView({
                 <div className="space-y-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.02] p-4">
                   <div>
                     <label className="text-slate-300 font-semibold block mb-1">
-                      Paste Rough Draft Email *
+                      Paste Rough Draft Email <span className="text-rose-400">*</span>
                     </label>
                     <textarea
                       rows={4}
-                      required={newMode === 'polish'}
                       value={newRawEmail}
-                      onChange={(e) => setNewRawEmail(e.target.value)}
+                      onChange={(e) => {
+                        setNewRawEmail(e.target.value);
+                        if (createErrors.raw) {
+                          setCreateErrors((prev) => ({ ...prev, raw: undefined }));
+                        }
+                      }}
                       placeholder="Paste your rough notes or draft email here: e.g. Hey guys, our new update is out, fixes bugs, 20% discount until Friday..."
-                      className="w-full rounded-xl border border-white/10 bg-[#0d1326] p-3 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                      className={`w-full rounded-xl border bg-[#0d1326] p-3 text-white placeholder-slate-500 focus:outline-none transition-all ${
+                        createErrors.raw
+                          ? 'border-rose-500/70 bg-rose-500/5 focus:border-rose-400 focus:ring-1 focus:ring-rose-400'
+                          : 'border-white/10 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+                      }`}
                     />
+                    {createErrors.raw && (
+                      <p className="flex items-center gap-1 text-[11px] text-rose-400 mt-1">
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        <span>{createErrors.raw}</span>
+                      </p>
+                    )}
                   </div>
+
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>

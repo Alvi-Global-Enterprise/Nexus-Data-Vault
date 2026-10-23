@@ -14,6 +14,8 @@ export default function LoginPage() {
 
   const loginMutation = useLogin();
 
+  const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
+
   // Automatically clean up stale dummy token if present
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -24,12 +26,37 @@ export default function LoginPage() {
     }
   }, []);
 
+  const validateForm = (): boolean => {
+    const errors: { username?: string; password?: string } = {};
+    const trimmedUser = username.trim();
+    const trimmedPass = password.trim();
+
+    if (!trimmedUser) {
+      errors.username = 'Account identifier or email is required.';
+    } else if (trimmedUser.length < 3) {
+      errors.username = 'Identifier must be at least 3 characters.';
+    }
+
+    if (!trimmedPass) {
+      errors.password = 'Password is required.';
+    } else if (trimmedPass.length < 6) {
+      errors.password = 'Password must be at least 6 characters.';
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
+    if (!validateForm()) {
+      return;
+    }
+
     loginMutation.mutate(
-      { email: username, password },
+      { email: username.trim(), password: password.trim() },
       {
         onSuccess: async (data: any) => {
           const realToken =
@@ -49,8 +76,8 @@ export default function LoginPage() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                username,
-                password,
+                username: username.trim(),
+                password: password.trim(),
                 token: realToken,
               }),
             });
@@ -66,7 +93,7 @@ export default function LoginPage() {
             const fallbackRes = await fetch('/api/auth/login', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username, password }),
+              body: JSON.stringify({ username: username.trim(), password: password.trim() }),
             });
             const fallbackData = await fallbackRes.json();
             if (fallbackData.success) {
@@ -134,40 +161,62 @@ export default function LoginPage() {
         )}
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
           
           {/* Username / Domain */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-              Account Identifier / Email
+              Account Identifier / Email <span className="text-rose-400">*</span>
             </label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 type="text"
-                required
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  if (fieldErrors.username) {
+                    setFieldErrors((prev) => ({ ...prev, username: undefined }));
+                  }
+                }}
                 placeholder="fionawhite@yopmail.co or alviglobal.com"
-                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-white/10 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
+                className={`w-full rounded-xl border py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 transition-all font-mono focus:outline-none ${
+                  fieldErrors.username
+                    ? 'border-rose-500/70 bg-rose-500/5 focus:border-rose-400 focus:ring-1 focus:ring-rose-400'
+                    : 'border-white/10 bg-white/5 focus:border-cyan-500 focus:bg-white/10 focus:ring-1 focus:ring-cyan-500'
+                }`}
               />
             </div>
+            {fieldErrors.username && (
+              <p className="flex items-center gap-1 text-[11px] text-rose-400 mt-1">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                <span>{fieldErrors.username}</span>
+              </p>
+            )}
           </div>
 
           {/* Password */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-              Security Key / Password
+              Security Key / Password <span className="text-rose-400">*</span>
             </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 type={showPassword ? 'text' : 'password'}
-                required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) {
+                    setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                  }
+                }}
                 placeholder="••••••••••••"
-                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-11 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-white/10 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
+                className={`w-full rounded-xl border py-2.5 pl-10 pr-11 text-sm text-white placeholder-slate-500 transition-all font-mono focus:outline-none ${
+                  fieldErrors.password
+                    ? 'border-rose-500/70 bg-rose-500/5 focus:border-rose-400 focus:ring-1 focus:ring-rose-400'
+                    : 'border-white/10 bg-white/5 focus:border-cyan-500 focus:bg-white/10 focus:ring-1 focus:ring-cyan-500'
+                }`}
               />
               <button
                 type="button"
@@ -177,6 +226,12 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {fieldErrors.password && (
+              <p className="flex items-center gap-1 text-[11px] text-rose-400 mt-1">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                <span>{fieldErrors.password}</span>
+              </p>
+            )}
           </div>
 
           {/* Submit Button */}
@@ -198,6 +253,7 @@ export default function LoginPage() {
             )}
           </button>
         </form>
+
 
         {/* Security badge footer */}
         <div className="mt-6 border-t border-white/5 pt-4 text-center text-[11px] text-slate-500 font-mono">

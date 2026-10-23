@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Search, Sparkles, ShoppingCart, Users, CreditCard, Mail, Shield, Zap, TrendingUp } from 'lucide-react';
+import { Search, Sparkles, ShoppingCart, Users, CreditCard, Mail, Shield, Zap, TrendingUp, AlertCircle } from 'lucide-react';
 import {
   CoincustodyOrder,
   SampleLead,
@@ -59,12 +59,27 @@ export function OmniSearchModal({
     }
   }, [initialQuery]);
 
+  const [searchError, setSearchError] = useState('');
+
   const performSearch = async (q: string) => {
-    if (!q || q.length < 2) return;
+    const trimmed = (q || '').trim();
+    if (!trimmed) {
+      setSearchError('Please enter an email, name, phone, or term to search.');
+      return;
+    }
+    if (trimmed.length < 2) {
+      setSearchError('Search query must be at least 2 characters.');
+      return;
+    }
+    setSearchError('');
     setLoading(true);
     setHasSearched(true);
     try {
-      const res = await fetch(`/api/omnisearch?q=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/omnisearch?q=${encodeURIComponent(trimmed)}`);
+      if (res.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
       const data = await res.json();
       setResults(data.results || {
         coincustody: [],
@@ -109,9 +124,16 @@ export function OmniSearchModal({
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (searchError) setSearchError('');
+              }}
               placeholder="Enter email, full name, phone number, city, or IP address..."
-              className="w-full rounded-full border border-white/15 bg-white/10 py-3 pl-12 pr-32 text-sm text-white placeholder-slate-400 shadow-inner focus:border-cyan-500 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              className={`w-full rounded-full border py-3 pl-12 pr-32 text-sm text-white placeholder-slate-400 shadow-inner focus:bg-slate-900 focus:outline-none focus:ring-2 transition-all ${
+                searchError
+                  ? 'border-rose-500/70 bg-rose-500/5 focus:border-rose-400 focus:ring-rose-500/20'
+                  : 'border-white/15 bg-white/10 focus:border-cyan-500 focus:ring-cyan-500/20'
+              }`}
             />
             <button
               type="submit"
@@ -121,7 +143,14 @@ export function OmniSearchModal({
               {loading ? 'Searching...' : 'Deep Match'}
             </button>
           </div>
+          {searchError && (
+            <p className="flex items-center justify-center gap-1.5 text-xs text-rose-400 mt-2 font-medium">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>{searchError}</span>
+            </p>
+          )}
         </form>
+
 
         {/* Suggestion hints */}
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400">

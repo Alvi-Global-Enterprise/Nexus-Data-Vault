@@ -43,10 +43,16 @@ export default function HomePage() {
   // Target contact IDs when transitioning from Contacts to Campaigns
   const [campaignTargetContactIds, setCampaignTargetContactIds] = useState<number[]>([]);
 
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
   const fetchStats = async () => {
     setIsLoadingStats(true);
     try {
       const res = await fetch('/api/stats');
+      if (res.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
       const data = await res.json();
       setStats(data);
     } catch (err) {
@@ -57,8 +63,26 @@ export default function HomePage() {
   };
 
   useEffect(() => {
+    // Client-side authentication verification
+    if (typeof window !== 'undefined') {
+      const hasCookie =
+        document.cookie.includes('vault_session=') ||
+        document.cookie.includes('nexus_auth_token=');
+      const token = localStorage.getItem('nexus_auth_token');
+
+      const isAuthed =
+        hasCookie ||
+        (token && token !== 'local_authenticated_token' && token.trim().length > 5);
+
+      if (!isAuthed) {
+        window.location.href = '/login';
+        return;
+      }
+    }
+    setIsAuthChecking(false);
     fetchStats();
   }, []);
+
 
   const handleOpenDrawer = (
     dataset: 'coincustody' | 'sample' | 'shakepay' | 'cms_crypto' | 'crypto_leads' | 'etoro',
@@ -73,6 +97,19 @@ export default function HomePage() {
     setOmniQuery(email);
     setActiveTab('omni');
   };
+
+  if (isAuthChecking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#070b16]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent" />
+          <p className="font-mono text-xs text-slate-400 tracking-wider uppercase animate-pulse">
+            Verifying Security Credentials...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">

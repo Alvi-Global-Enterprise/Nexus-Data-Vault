@@ -97,6 +97,14 @@ export function ContactsView({ onStartCampaignWithContacts }: ContactsViewProps)
   const meta = contactsData?.meta;
 
   // Handlers
+  const [contactFormErrors, setContactFormErrors] = useState<{
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    general?: string;
+  }>({});
+
   const handleOpenCreateModal = () => {
     setEditingContact(null);
     setFormEmail('');
@@ -105,6 +113,7 @@ export function ContactsView({ onStartCampaignWithContacts }: ContactsViewProps)
     setFormCompany('');
     setFormPhone('');
     setFormJobTitle('');
+    setContactFormErrors({});
     setIsContactModalOpen(true);
   };
 
@@ -116,36 +125,77 @@ export function ContactsView({ onStartCampaignWithContacts }: ContactsViewProps)
     setFormCompany(c.company || '');
     setFormPhone(c.phone || '');
     setFormJobTitle(c.job_title || '');
+    setContactFormErrors({});
     setIsContactModalOpen(true);
+  };
+
+  const validateContactForm = (): boolean => {
+    const errors: typeof contactFormErrors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const trimmedEmail = formEmail.trim();
+
+    if (!trimmedEmail) {
+      errors.email = 'Email address is required.';
+    } else if (!emailRegex.test(trimmedEmail)) {
+      errors.email = 'Please provide a valid email format (e.g. name@domain.com).';
+    } else if (trimmedEmail.length > 255) {
+      errors.email = 'Email address cannot exceed 255 characters.';
+    }
+
+    if (formFirstName.length > 100) {
+      errors.first_name = 'First name cannot exceed 100 characters.';
+    }
+
+    if (formLastName.length > 100) {
+      errors.last_name = 'Last name cannot exceed 100 characters.';
+    }
+
+    if (formPhone.trim()) {
+      const phoneRegex = /^[0-9+\-()\s.]+$/;
+      if (!phoneRegex.test(formPhone.trim())) {
+        errors.phone = 'Phone number contains invalid characters.';
+      } else if (formPhone.trim().length < 7 || formPhone.trim().length > 30) {
+        errors.phone = 'Phone number must be between 7 and 30 characters.';
+      }
+    }
+
+    setContactFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formEmail) return;
+    if (!validateContactForm()) return;
 
-    if (editingContact) {
-      await updateMutation.mutateAsync({
-        id: editingContact.id,
-        payload: {
-          email: formEmail,
-          first_name: formFirstName,
-          last_name: formLastName,
-          company: formCompany,
-          phone: formPhone,
-          job_title: formJobTitle,
-        },
-      });
-    } else {
-      await createMutation.mutateAsync({
-        email: formEmail,
-        first_name: formFirstName,
-        last_name: formLastName,
-        company: formCompany,
-        phone: formPhone,
-        job_title: formJobTitle,
+    try {
+      if (editingContact) {
+        await updateMutation.mutateAsync({
+          id: editingContact.id,
+          payload: {
+            email: formEmail.trim(),
+            first_name: formFirstName.trim() || undefined,
+            last_name: formLastName.trim() || undefined,
+            company: formCompany.trim() || undefined,
+            phone: formPhone.trim() || undefined,
+            job_title: formJobTitle.trim() || undefined,
+          },
+        });
+      } else {
+        await createMutation.mutateAsync({
+          email: formEmail.trim(),
+          first_name: formFirstName.trim() || undefined,
+          last_name: formLastName.trim() || undefined,
+          company: formCompany.trim() || undefined,
+          phone: formPhone.trim() || undefined,
+          job_title: formJobTitle.trim() || undefined,
+        });
+      }
+      setIsContactModalOpen(false);
+    } catch (err: any) {
+      setContactFormErrors({
+        general: err?.message || 'Failed to save contact. Please check your data.',
       });
     }
-    setIsContactModalOpen(false);
   };
 
   const handleDeleteContact = async (id: number) => {
@@ -159,6 +209,25 @@ export function ContactsView({ onStartCampaignWithContacts }: ContactsViewProps)
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file extension
+    const allowedExtensions = ['.csv', '.xlsx', '.xls', '.txt'];
+    const fileName = file.name.toLowerCase();
+    const isAllowed = allowedExtensions.some((ext) => fileName.endsWith(ext));
+
+    if (!isAllowed) {
+      alert('Invalid file format. Please upload a .CSV, .XLSX, .XLS or .TXT spreadsheet.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    // Validate file size (10 MB max)
+    const MAX_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      alert('File size exceeds the 10 MB limit. Please upload a smaller file.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     try {
       const res = await importMutation.mutateAsync(file);
       setImportSummary(res);
@@ -169,6 +238,7 @@ export function ContactsView({ onStartCampaignWithContacts }: ContactsViewProps)
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
 
   const toggleSelectAll = () => {
     if (selectedContactIds.length === contacts.length) {
@@ -587,17 +657,40 @@ export function ContactsView({ onStartCampaignWithContacts }: ContactsViewProps)
               </button>
             </div>
 
-            <form onSubmit={handleSaveContact} className="space-y-3.5 text-xs">
+            <form onSubmit={handleSaveContact} noValidate className="space-y-3.5 text-xs">
+              {contactFormErrors.general && (
+                <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-300">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
+                  <span>{contactFormErrors.general}</span>
+                </div>
+              )}
+
               <div>
-                <label className="text-slate-300 font-semibold block mb-1">Email Address *</label>
+                <label className="text-slate-300 font-semibold block mb-1">
+                  Email Address <span className="text-rose-400">*</span>
+                </label>
                 <input
                   type="email"
-                  required
                   value={formEmail}
-                  onChange={(e) => setFormEmail(e.target.value)}
+                  onChange={(e) => {
+                    setFormEmail(e.target.value);
+                    if (contactFormErrors.email) {
+                      setContactFormErrors((prev) => ({ ...prev, email: undefined }));
+                    }
+                  }}
                   placeholder="contact@company.com"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                  className={`w-full rounded-xl border px-3 py-2 text-white placeholder-slate-500 focus:outline-none transition-all ${
+                    contactFormErrors.email
+                      ? 'border-rose-500/70 bg-rose-500/5 focus:border-rose-400 focus:ring-1 focus:ring-rose-400'
+                      : 'border-white/10 bg-white/5 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500'
+                  }`}
                 />
+                {contactFormErrors.email && (
+                  <p className="flex items-center gap-1 text-[11px] text-rose-400 mt-1">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    <span>{contactFormErrors.email}</span>
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -606,20 +699,44 @@ export function ContactsView({ onStartCampaignWithContacts }: ContactsViewProps)
                   <input
                     type="text"
                     value={formFirstName}
-                    onChange={(e) => setFormFirstName(e.target.value)}
+                    onChange={(e) => {
+                      setFormFirstName(e.target.value);
+                      if (contactFormErrors.first_name) {
+                        setContactFormErrors((prev) => ({ ...prev, first_name: undefined }));
+                      }
+                    }}
                     placeholder="John"
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                    className={`w-full rounded-xl border px-3 py-2 text-white placeholder-slate-500 focus:outline-none transition-all ${
+                      contactFormErrors.first_name
+                        ? 'border-rose-500/70 bg-rose-500/5'
+                        : 'border-white/10 bg-white/5 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500'
+                    }`}
                   />
+                  {contactFormErrors.first_name && (
+                    <p className="text-[10px] text-rose-400 mt-0.5">{contactFormErrors.first_name}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-slate-300 font-semibold block mb-1">Last Name</label>
                   <input
                     type="text"
                     value={formLastName}
-                    onChange={(e) => setFormLastName(e.target.value)}
+                    onChange={(e) => {
+                      setFormLastName(e.target.value);
+                      if (contactFormErrors.last_name) {
+                        setContactFormErrors((prev) => ({ ...prev, last_name: undefined }));
+                      }
+                    }}
                     placeholder="Doe"
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                    className={`w-full rounded-xl border px-3 py-2 text-white placeholder-slate-500 focus:outline-none transition-all ${
+                      contactFormErrors.last_name
+                        ? 'border-rose-500/70 bg-rose-500/5'
+                        : 'border-white/10 bg-white/5 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500'
+                    }`}
                   />
+                  {contactFormErrors.last_name && (
+                    <p className="text-[10px] text-rose-400 mt-0.5">{contactFormErrors.last_name}</p>
+                  )}
                 </div>
               </div>
 
@@ -651,11 +768,27 @@ export function ContactsView({ onStartCampaignWithContacts }: ContactsViewProps)
                 <input
                   type="text"
                   value={formPhone}
-                  onChange={(e) => setFormPhone(e.target.value)}
+                  onChange={(e) => {
+                    setFormPhone(e.target.value);
+                    if (contactFormErrors.phone) {
+                      setContactFormErrors((prev) => ({ ...prev, phone: undefined }));
+                    }
+                  }}
                   placeholder="+1 (555) 019-2834"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                  className={`w-full rounded-xl border px-3 py-2 text-white placeholder-slate-500 focus:outline-none transition-all ${
+                    contactFormErrors.phone
+                      ? 'border-rose-500/70 bg-rose-500/5 focus:border-rose-400 focus:ring-1 focus:ring-rose-400'
+                      : 'border-white/10 bg-white/5 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500'
+                  }`}
                 />
+                {contactFormErrors.phone && (
+                  <p className="flex items-center gap-1 text-[11px] text-rose-400 mt-1">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    <span>{contactFormErrors.phone}</span>
+                  </p>
+                )}
               </div>
+
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
                 <button
