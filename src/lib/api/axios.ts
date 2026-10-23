@@ -1,6 +1,28 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://3.148.244.66:8003/api/v1/';
+/**
+ * Resolve API Base URL:
+ * - If an HTTPS endpoint is explicitly configured, use it.
+ * - In the browser on HTTPS live sites, NEVER use plain http:// to prevent "blocked:mixed-content" errors.
+ *   Instead, use the relative path '/api/v1/' which Next.js rewrites proxy securely.
+ */
+const resolveBaseUrl = (): string => {
+  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  if (envUrl && envUrl.startsWith('https://')) {
+    return envUrl;
+  }
+
+  if (typeof window !== 'undefined') {
+    if (window.location.protocol === 'https:' || !envUrl || envUrl.startsWith('http://')) {
+      return '/api/v1/';
+    }
+  }
+
+  return envUrl || '/api/v1/';
+};
+
+const BASE_URL = resolveBaseUrl();
 
 // Token Storage Keys
 export const TOKEN_STORAGE_KEY = 'nexus_auth_token';

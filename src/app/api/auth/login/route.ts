@@ -38,7 +38,11 @@ export async function POST(req: NextRequest) {
 
     // 3. Try upstream API authentication
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://3.148.244.66:8003/api/v1/';
+      const targetBackend = process.env.BACKEND_API_INTERNAL_URL || 'http://3.148.244.66:8003';
+      let baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || `${targetBackend}/api/v1/`;
+      if (baseUrl.startsWith('/')) {
+        baseUrl = `${targetBackend.replace(/\/$/, '')}${baseUrl}`;
+      }
       const cleanUrl = baseUrl.endsWith('/') ? `${baseUrl}auth/login` : `${baseUrl}/auth/login`;
 
       const apiRes = await fetch(cleanUrl, {
