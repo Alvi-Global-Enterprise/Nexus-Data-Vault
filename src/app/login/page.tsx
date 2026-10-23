@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Lock, Mail, Eye, EyeOff, ArrowRight, AlertCircle, Sparkles, CheckCircle2 } from 'lucide-react';
-import { useLogin, setAuthToken } from '@/lib/api';
+import { useLogin, setAuthToken, removeAuthToken, getAuthToken } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,6 +14,16 @@ export default function LoginPage() {
 
   const loginMutation = useLogin();
 
+  // Automatically clean up stale dummy token if present
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const existingToken = getAuthToken();
+      if (existingToken === 'local_authenticated_token') {
+        removeAuthToken();
+      }
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -21,7 +31,18 @@ export default function LoginPage() {
     loginMutation.mutate(
       { email: username, password },
       {
-        onSuccess: async (data) => {
+        onSuccess: async (data: any) => {
+          const realToken =
+            data?.token ||
+            data?.access_token ||
+            data?.data?.token ||
+            data?.data?.access_token ||
+            data?.plainTextToken;
+
+          if (realToken && realToken !== 'local_authenticated_token') {
+            setAuthToken(realToken);
+          }
+
           // Sync with local Next.js Edge session for dashboard route access
           try {
             await fetch('/api/auth/login', {
@@ -30,7 +51,7 @@ export default function LoginPage() {
               body: JSON.stringify({
                 username,
                 password,
-                token: data?.token || data?.access_token,
+                token: realToken,
               }),
             });
           } catch (e) {
@@ -49,7 +70,17 @@ export default function LoginPage() {
             });
             const fallbackData = await fallbackRes.json();
             if (fallbackData.success) {
-              setAuthToken('local_authenticated_token');
+              const realToken =
+                fallbackData.token ||
+                fallbackData.data?.token ||
+                fallbackData.data?.access_token ||
+                process.env.NEXT_PUBLIC_DEFAULT_API_TOKEN;
+
+              if (realToken && realToken !== 'local_authenticated_token') {
+                setAuthToken(realToken);
+              } else {
+                removeAuthToken();
+              }
               router.push('/');
               router.refresh();
               return;

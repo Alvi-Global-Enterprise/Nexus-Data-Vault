@@ -31,11 +31,20 @@ export const USER_STORAGE_KEY = 'nexus_auth_user';
 // Helper functions for client-side token storage
 export const getAuthToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_STORAGE_KEY);
+  const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (token === 'local_authenticated_token') {
+    removeAuthToken();
+    return null;
+  }
+  return token;
 };
 
 export const setAuthToken = (token: string): void => {
   if (typeof window === 'undefined') return;
+  if (!token || token === 'local_authenticated_token') {
+    removeAuthToken();
+    return;
+  }
   localStorage.setItem(TOKEN_STORAGE_KEY, token);
   // Also store in document cookie for SSR/middleware compatibility if needed
   document.cookie = `${TOKEN_STORAGE_KEY}=${token}; path=/; max-age=604800; SameSite=Lax`;
@@ -76,8 +85,14 @@ export const apiClient = axios.create({
 // Request Interceptor: Attach Auth Bearer Token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = getAuthToken();
-    if (token && config.headers) {
+    let token = getAuthToken();
+
+    // Fallback to configured default API token if available
+    if (!token && process.env.NEXT_PUBLIC_DEFAULT_API_TOKEN) {
+      token = process.env.NEXT_PUBLIC_DEFAULT_API_TOKEN;
+    }
+
+    if (token && token !== 'local_authenticated_token' && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;

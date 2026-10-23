@@ -21,9 +21,15 @@ export const authService = {
 
     const data = response.data;
 
-    // Handle token from common response structures
-    const token = data.token || data.access_token || (data as any)?.data?.token;
-    if (token) {
+    // Handle token from common response structures (Laravel Sanctum returns { data: { token: "..." } })
+    const token =
+      data.token ||
+      data.access_token ||
+      (data as any)?.data?.token ||
+      (data as any)?.data?.access_token ||
+      (data as any)?.plainTextToken;
+
+    if (token && token !== 'local_authenticated_token') {
       setAuthToken(token);
     }
 

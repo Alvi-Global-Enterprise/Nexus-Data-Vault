@@ -25,7 +25,12 @@ export async function POST(req: NextRequest) {
     const VALID_PASS = 'AlvyGlobal@#123';
 
     if (inputUser.toLowerCase() === VALID_USER.toLowerCase() && inputPass === VALID_PASS) {
-      const response = NextResponse.json({ success: true, message: 'Authentication successful' });
+      const defaultToken = process.env.BACKEND_API_TOKEN || process.env.NEXT_PUBLIC_DEFAULT_API_TOKEN || '';
+      const response = NextResponse.json({
+        success: true,
+        message: 'Authentication successful',
+        token: defaultToken,
+      });
       response.cookies.set('vault_session', 'authenticated_alviglobal_session_token', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -51,17 +56,28 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ email: inputUser, password: inputPass }),
+        body: JSON.stringify({
+          email: inputUser,
+          password: inputPass,
+          device_name: 'web-browser',
+        }),
       });
 
       const apiData = await apiRes.json().catch(() => null);
 
       if (apiRes.ok && apiData) {
+        const extractedToken =
+          apiData.token ||
+          apiData.access_token ||
+          apiData.data?.token ||
+          apiData.data?.access_token ||
+          apiData.plainTextToken;
+
         const response = NextResponse.json({
           success: true,
           message: 'Authentication successful',
           data: apiData,
-          token: apiData.token || apiData.access_token,
+          token: extractedToken,
         });
 
         response.cookies.set('vault_session', 'authenticated_alviglobal_session_token', {
